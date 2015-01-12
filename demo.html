@@ -123,7 +123,7 @@
       loginInfo.onsubmit = function (e) {
         if (e.preventDefault) e.preventDefault();
 
-        var jid = document.getElementById('jid').value;
+        var jid = new XMPP.JID(document.getElementById('jid').value);
 
         var url = document.getElementById('url').value;
         var wsURL, boshURL, transports = ['websocket', 'bosh'];
@@ -137,11 +137,32 @@
         }
 
         client = XMPP.createClient({
-          jid: jid,
+          jid: jid.bare,
+          resource: jid.resource,
           password: document.getElementById('password').value,
           wsURL: wsURL,
           boshURL: boshURL,
           transports: transports
+        });
+
+        // Persist stream state on a per-resource basis so that
+        // multiple tabs don't conflict (so long as different tabs
+        // have different resources)
+        client.sm.sync({
+          restore: function () {
+            var streamStateKey = 'stream-state-' + client.jid.resource;
+            if (localStorage[streamStateKey]) {
+              return JSON.parse(localStorage[streamStateKey]);
+            }
+          },
+          persist: function (state) {
+            var streamStateKey = 'stream-state-' + client.jid.resource;
+            localStorage[streamStateKey] = JSON.stringify(state);
+          },
+          clear: function () {
+            var streamStateKey = 'stream-state-' + client.jid.resource;
+            delete localStorage[streamStateKey];
+          }
         });
 
         client.on('*', log);
